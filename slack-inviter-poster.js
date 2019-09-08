@@ -71,8 +71,9 @@ function sendMessage(token, channel, body, cb) {
                             "emoji": true,
                             "text": "Approve"
                         },
+                        "action_id": "accept",
                         "style": "primary",
-                        "value": "approve"
+                        "value": body.email
                     },
                     {
                         "type": "button",
@@ -81,6 +82,7 @@ function sendMessage(token, channel, body, cb) {
                             "emoji": true,
                             "text": "Deny"
                         },
+                        "action_id": "reject",
                         "style": "danger",
                         "value": "deny"
                     }
