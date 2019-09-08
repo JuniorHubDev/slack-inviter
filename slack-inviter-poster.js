@@ -1,0 +1,124 @@
+const https = require('https');
+const qs = require('querystring');
+
+const channel = '#slack-invite-test';
+
+module.exports = function (context, req, res) {
+    let body = '';
+
+    if (req.method !== 'POST') {
+        res.writeHead(500);
+        return res.end();
+    }
+
+    req.on('data', function (data) {
+        body += data;
+        
+        if (body.length > 1e6) {
+            body = '';
+            // Flood attack or faulty client, nuke request
+            return req.connection.destroy();
+        }
+    });
+
+    req.on('end', function () {
+        body = qs.parse(body);
+
+        sendMessage(context.secrets.slack_access_token, channel, body, (err, result) => {
+            if (err) {
+                res.writeHead(500);
+                return res.end({message: "error"});
+            }
+
+            res.writeHead(200);
+            res.end(JSON.stringify({message: "success"}));
+        })
+    });
+};
+
+function sendMessage(token, channel, body, cb) {
+    const fields = Object.keys(body).map((key) => {
+        return {
+            type: "mrkdwn",
+            text: `*${key}:*\n${body[key]}`
+        }
+    })
+
+    const message = {
+        token: token,
+        link_names: true,
+        as_user: false,
+        channel,
+        blocks: JSON.stringify([
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Someone has filled in the form!"
+                }
+            },
+            {
+                "type": "section",
+                fields
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "emoji": true,
+                            "text": "Approve"
+                        },
+                        "style": "primary",
+                        "value": "approve"
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "emoji": true,
+                            "text": "Deny"
+                        },
+                        "style": "danger",
+                        "value": "deny"
+                    }
+                ]
+            }
+        ])
+    };
+
+    makeRequest({
+        host: 'slack.com',
+        path: '/api/chat.postMessage',
+        method: 'POST',
+        headers: {
+            'Content-type': 'application/x-www-form-urlencoded'
+        }
+    }, qs.stringify(message), (err, result) => {
+        cb(err, result);
+    });
+}
+
+function makeRequest(options, body, cb) {
+    const req = https.request(options, (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+            data += chunk;
+        });
+        res.on('error', (err) => {
+            cb(err);
+        })
+        res.on('end', () => {
+            cb(null, data);
+        });
+    });
+
+    if (body) {
+        req.write(body);
+    }
+
+    req.end();
+}
