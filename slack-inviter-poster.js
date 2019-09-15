@@ -1,5 +1,6 @@
 const https = require('https');
 const qs = require('querystring');
+const titleCase = require('title-case');
 
 module.exports = function (context, req, res) {
     let body = '';
@@ -38,7 +39,7 @@ module.exports = function (context, req, res) {
             }
 
             if (redirectUrl) {
-                res.redirect(redirectUrl);
+                res.writeHead(302, { Location: redirectUrl });
                 return res.end();
             }
 
@@ -50,9 +51,11 @@ module.exports = function (context, req, res) {
 
 function sendMessage(token, channel, body, cb) {
     const fields = Object.keys(body).map((key) => {
+        const title = titleCase(key.replace('_', ' '));
+
         return {
             type: "mrkdwn",
-            text: `*${key}:*\n${body[key]}`
+            text: `*${title}:*\n${body[key]}`
         }
     })
 
