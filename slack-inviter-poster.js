@@ -1,8 +1,6 @@
 const https = require('https');
 const qs = require('querystring');
 
-const channel = '#slack-invite-test';
-
 module.exports = function (context, req, res) {
     let body = '';
 
@@ -23,20 +21,27 @@ module.exports = function (context, req, res) {
 
     req.on('end', function () {
         body = qs.parse(body);
+        const redirectUrl = body.redirect_url;
+        body.redirect_url = undefined;
 
-        sendMessage(context.secrets.slack_access_token, channel, body, (err, result) => {
+        sendMessage(context.secrets.slack_access_token, body, (err, result) => {
             if (err) {
                 res.writeHead(500);
                 return res.end({message: "error"});
             }
 
+            if (redirectUrl) {
+                res.redirect(redirectUrl);
+                return res.end();
+            }
+
             res.writeHead(200);
-            res.end(JSON.stringify({message: "success"}));
+            return res.end(JSON.stringify({message: "success"}));
         })
     });
 };
 
-function sendMessage(token, channel, body, cb) {
+function sendMessage(token, body, cb) {
     const fields = Object.keys(body).map((key) => {
         return {
             type: "mrkdwn",
@@ -48,7 +53,7 @@ function sendMessage(token, channel, body, cb) {
         token: token,
         link_names: true,
         as_user: false,
-        channel,
+        channel: context.secrets.channel,
         blocks: JSON.stringify([
             {
                 "type": "section",
