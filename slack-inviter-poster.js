@@ -20,11 +20,18 @@ module.exports = function (context, req, res) {
     });
 
     req.on('end', function () {
-        body = qs.parse(body);
+        if (
+            req.headers['content-type'] === 'application/json' ||
+            req.headers['Content-Type'] === 'application/json'
+        ) {
+            body = JSON.parse(body);
+        } else {
+            body = qs.parse(body);
+        }
         const redirectUrl = body.redirect_url;
-        body.redirect_url = undefined;
+        delete body.redirect_url;
 
-        sendMessage(context.secrets.slack_access_token, body, (err, result) => {
+        sendMessage(context.secrets.slack_access_token, context.secrets.channel, body, (err, result) => {
             if (err) {
                 res.writeHead(500);
                 return res.end({message: "error"});
@@ -41,7 +48,7 @@ module.exports = function (context, req, res) {
     });
 };
 
-function sendMessage(token, body, cb) {
+function sendMessage(token, channel, body, cb) {
     const fields = Object.keys(body).map((key) => {
         return {
             type: "mrkdwn",
@@ -53,7 +60,7 @@ function sendMessage(token, body, cb) {
         token: token,
         link_names: true,
         as_user: false,
-        channel: context.secrets.channel,
+        channel,
         blocks: JSON.stringify([
             {
                 "type": "section",
